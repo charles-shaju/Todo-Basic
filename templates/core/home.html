@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}Todo{% endblock %}
+
+{% block content %}
+  <form id="todo-form" style="margin-bottom: 12px;">
+    {% csrf_token %}
+    <input id="todo-text" placeholder="New todo" />
+    <button type="submit">Add</button>
+  </form>
+
+  <div id="error" style="color: #b00;"></div>
+  <ul id="list"></ul>
+
+  <p style="margin-top: 16px;">API: <code>/api/todos/</code></p>
+
+  <script>
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    const csrftoken = getCookie('csrftoken');
+    const list = document.getElementById('list');
+    const errorBox = document.getElementById('error');
+
+    async function load() {
+      const res = await fetch('/api/todos/');
+      const data = await res.json();
+      list.innerHTML = '';
+      for (const t of data.items) {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.textContent = t.done ? 'Undo' : 'Done';
+        btn.onclick = () => toggle(t.id);
+        li.textContent = (t.done ? '[x] ' : '[ ] ') + t.text + ' ';
+        li.appendChild(btn);
+        list.appendChild(li);
+      }
+    }
+
+    async function add(text) {
+      errorBox.textContent = '';
+      const res = await fetch('/api/todos/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken,
+        },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) {
+        errorBox.textContent = await res.text();
+        return;
+      }
+      await load();
+    }
+
+    async function toggle(id) {
+      await fetch(`/api/todos/${id}/toggle/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrftoken,
+        },
+      });
+      await load();
+    }
+
+    document.getElementById('todo-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('todo-text');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      add(text);
+    });
+
+    load();
+  </script>
+{% endblock %}
