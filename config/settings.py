@@ -7,10 +7,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-only-insecure-key')
-DEBUG = os.getenv('DJANGO_DEBUG', '1') == '1'
 
-allowed_hosts_raw = os.getenv('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost')
+# Render sets RENDER_EXTERNAL_HOSTNAME (e.g. "myapp.onrender.com"). When present,
+# default to production-safe settings without requiring extra configuration.
+render_hostname = (os.getenv('RENDER_EXTERNAL_HOSTNAME') or '').strip()
+is_render = bool(render_hostname) or (os.getenv('RENDER') is not None)
+
+debug_default = '0' if is_render else '1'
+DEBUG = os.getenv('DJANGO_DEBUG', debug_default) == '1'
+
+allowed_hosts_default = '127.0.0.1,localhost'
+allowed_hosts_raw = os.getenv('DJANGO_ALLOWED_HOSTS', allowed_hosts_default)
 ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_raw.split(',') if h.strip()]
+if render_hostname and render_hostname not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(render_hostname)
 
 
 INSTALLED_APPS = [
@@ -85,6 +95,9 @@ STORAGES = {
         'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
     }
 }
+
+if render_hostname:
+	CSRF_TRUSTED_ORIGINS = [f'https://{render_hostname}']
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
